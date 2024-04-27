@@ -1,0 +1,1 @@
+# extension-neutralino-template
