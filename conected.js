@@ -1,38 +1,32 @@
 import { v4 as uuidv4 } from 'uuid';
-import { readdir } from 'node:fs';
+import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
+import Logger from 'loger'
 
 const loadActions = async (ruta) => {
-  const archivos = await new Promise((resolve, reject) => {
-    readdir(ruta, (err, archivos) => {
-      if(err) reject(err);
-      resolve(archivos);
-    });
+  const archivos = await readdir(ruta);
+  return await new Promise(async (resolve) => {
+    const actions = {};
+    for (const archivo of archivos) {
+      if (!archivo.endsWith('.js')) return;
+      const action = await import(join(ruta, archivo)).then(mod => mod.default);
+      if (typeof action === 'function') {
+        actions[archivo.replace('.js', '')] = action;
+      }
+    }
+    resolve(actions);
   });
-
-  const actions = archivos.reduce(async (prev, archivo) => {
-    if (!archivo.endsWith('.js')) return prev;
-    const { default: action } = await import(join(ruta,archivo));
-    if(typeof action !== 'function') return prev;
-    prev[archivo.replace('.js','')] = action;
-    return prev;
-  },{});
-  return actions;
 }
 
-export default async ({
-  name = '',
-  authData = { nlPort: 0, nlToken: '', nlConnectToken: '' }, 
-  ruta }) => {
+export default async ({ nlPort, nlToken, nlConnectToken, nlExtensionId }) => {
   try {
 
-    const { nlPort, nlToken, nlConnectToken } = authData
+    const client = new WebSocket(`ws://localhost:${nlPort}?extensionId=${nlExtensionId}&connectToken=${nlConnectToken}`);
 
-    const client = new WebSocket(`ws://localhost:${nlPort}?extensionId=${name}&connectToken=${nlConnectToken}`);
+    //client.onopen = () => Logger.log('Conected to Neutralinojs server');
 
-    client.onopen = () => console.log('Connected to Neutralino');
-
-    const actions = await loadActions(join(import.meta.dir,'actions'));
+    const path = join(import.meta.dir, 'actions')
+    const actions = await loadActions(path);
 
     const send = (event, data) => {
       client.send(JSON.stringify({
@@ -47,22 +41,28 @@ export default async ({
     };
 
     client.onmessage = (e) => {
+      //Logger.log('Message received', e.data);
       if (typeof e.data === 'string') {
         let message = JSON.parse(e.data);
-        if(actions[message.event]){
-          actions[message.event]( message.data, send );
+        if (actions[message.event]) {
+          actions[message.event](message.data, send);
         }
       }
     };
 
-    client.onclose = () => process.exit();
+    client.onclose = () => {
+      Logger.log('Conection closed');
+      process.exit(0)
+    };
 
     client.onerror = (error) => {
-      console.log('Error ', error);
+      Logger.log('Error ', error);
+      process.exit(0);
     };
 
   } catch (error) {
-    console.error('Error ', error);
+    Logger.log('Error ', error);
+    process.exit(1);
   }
 
 }
