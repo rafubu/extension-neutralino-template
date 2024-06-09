@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import Logger from 'loger'
 
 const loadActions = async (ruta) => {
   const archivos = await readdir(ruta);
@@ -41,7 +40,6 @@ export default async ({ nlPort, nlToken, nlConnectToken, nlExtensionId }) => {
     };
 
     client.onmessage = (e) => {
-      //Logger.log('Message received', e.data);
       if (typeof e.data === 'string') {
         let message = JSON.parse(e.data);
         if (actions[message.event]) {
@@ -51,17 +49,14 @@ export default async ({ nlPort, nlToken, nlConnectToken, nlExtensionId }) => {
     };
 
     client.onclose = () => {
-      Logger.log('Conection closed');
       process.exit(0)
     };
 
     client.onerror = (error) => {
-      Logger.log('Error ', error);
       process.exit(0);
     };
 
   } catch (error) {
-    Logger.log('Error ', error);
     process.exit(1);
   }
 

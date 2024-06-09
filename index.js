@@ -1,5 +1,4 @@
 import conected from './conected.js';
-import Logger from 'loger';
 
 // "command": "bun ${NL_PATH}/extensions/bunexample/index.ts"
 
@@ -8,7 +7,6 @@ const main = async () => {
     const authData = await readStdin()
     conected(authData);
   } catch (error) {
-    Logger.log('Error ', error);
     console.error('Error ', error);
     process.exit(1);
   }
